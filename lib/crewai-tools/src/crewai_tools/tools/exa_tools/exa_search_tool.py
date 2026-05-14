@@ -38,6 +38,7 @@ class EXASearchTool(BaseTool):
     args_schema: type_[BaseModel] = EXABaseToolSchema
     client: Any | None = None
     content: bool | None = False
+    highlights: bool | None = True
     summary: bool | None = False
     type: str | None = "auto"
     package_dependencies: list[str] = Field(default_factory=lambda: ["exa_py"])
@@ -69,6 +70,7 @@ class EXASearchTool(BaseTool):
     def __init__(
         self,
         content: bool | None = False,
+        highlights: bool | None = True,
         summary: bool | None = False,
         type: str | None = "auto",
         **kwargs,
@@ -101,7 +103,9 @@ class EXASearchTool(BaseTool):
         if self.base_url:
             client_kwargs["base_url"] = self.base_url
         self.client = Exa(**client_kwargs)
+        self.client.headers["x-exa-integration"] = "crewai-integration"
         self.content = content
+        self.highlights = highlights
         self.summary = summary
         self.type = type
 
@@ -127,8 +131,13 @@ class EXASearchTool(BaseTool):
             search_params["include_domains"] = include_domains
 
         if self.content:
+            content_kwargs: dict[str, Any] = {}
+            if self.highlights:
+                content_kwargs["highlights"] = True
+            if self.summary:
+                content_kwargs["summary"] = self.summary
             results = self.client.search_and_contents(
-                search_query, summary=self.summary, **search_params
+                search_query, **content_kwargs, **search_params
             )
         else:
             results = self.client.search(search_query, **search_params)
